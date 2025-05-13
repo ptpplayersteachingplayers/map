@@ -1,0 +1,101 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Find Nearby Soccer Fields</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+    #map { height: 500px; width: 100%; border-radius: 10px; margin-top: 20px; }
+    input, button {
+      padding: 10px;
+      font-size: 1em;
+      margin: 10px 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #FFD700;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>⚽ Find Nearby Soccer Fields</h2>
+  <p>Enter your location or click "Use My Location"</p>
+
+  <input id="locationInput" type="text" placeholder="Enter ZIP code or address">
+  <button onclick="geocodeLocation()">Search</button>
+  <button onclick="useMyLocation()">📍 Use My Location</button>
+
+  <div id="map"></div>
+
+  <script>
+    let map, service, geocoder;
+
+    function initMap() {
+      const defaultCenter = { lat: 40.04, lng: -75.39 };
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: defaultCenter,
+        zoom: 12
+      });
+      geocoder = new google.maps.Geocoder();
+    }
+
+    function useMyLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          const loc = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          map.setCenter(loc);
+          findSoccerFields(loc);
+        });
+      } else {
+        alert("Geolocation not supported by your browser.");
+      }
+    }
+
+    function geocodeLocation() {
+      const address = document.getElementById("locationInput").value;
+      if (!address) return alert("Please enter a location.");
+
+      geocoder.geocode({ address }, (results, status) => {
+        if (status === "OK") {
+          const location = results[0].geometry.location;
+          map.setCenter(location);
+          findSoccerFields(location);
+        } else {
+          alert("Geocode failed: " + status);
+        }
+      });
+    }
+
+    function findSoccerFields(location) {
+      const request = {
+        location: location,
+        radius: 10000,
+        keyword: "soccer field"
+      };
+      service = new google.maps.places.PlacesService(map);
+      service.nearbySearch(request, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK) {
+          results.forEach(place => {
+            new google.maps.Marker({
+              position: place.geometry.location,
+              map: map,
+              title: place.name
+            });
+          });
+        }
+      });
+    }
+  </script>
+
+  <script defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyASLf8mjb8iEbVo99DnaaPzXGlu5jhXrZE&libraries=places&callback=initMap">
+  </script>
+</body>
+</html>
