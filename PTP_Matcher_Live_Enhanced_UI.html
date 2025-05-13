@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PTP Trainer Matcher</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Arial', sans-serif;
+      background: #f9f9f9;
+    }
+    header {
+      background-color: #000;
+      color: white;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2.5rem;
+    }
+    header p {
+      color: #ccc;
+      font-size: 1rem;
+      margin-top: 8px;
+    }
+    #controls {
+      padding: 20px;
+      background: white;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    #zipInput {
+      padding: 10px;
+      font-size: 16px;
+      width: 250px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    #searchButton {
+      padding: 10px 18px;
+      font-size: 16px;
+      margin-left: 10px;
+      background-color: #FFD700;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .section {
+      padding: 30px 20px;
+    }
+    .field-section {
+      margin-bottom: 40px;
+    }
+    .field-section h2 {
+      color: #000;
+      font-size: 1.5rem;
+      border-bottom: 2px solid #FFD700;
+      margin-bottom: 15px;
+    }
+    .trainer-card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 20px;
+      margin-bottom: 20px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .trainer-card h3 {
+      margin-top: 0;
+      font-size: 1.3rem;
+    }
+    .trainer-card p {
+      font-size: 0.95rem;
+      margin: 6px 0;
+    }
+    .trainer-card a {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 8px 14px;
+      background-color: #FFD700;
+      color: black;
+      font-weight: bold;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+    .not-found {
+      text-align: center;
+      font-size: 1.1rem;
+      padding: 40px 20px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Find a Trainer & Field Near You</h1>
+    <p>Enter your ZIP code to get matched with a verified trainer at a local field.</p>
+  </header>
+
+  <div id="controls">
+    <input type="text" id="zipInput" placeholder="Enter ZIP Code" />
+    <button id="searchButton" onclick="searchByZip()">Find Trainer</button>
+  </div>
+
+  <div class="section" id="results"></div>
+
+  <script>
+    let trainerData = [];
+
+    function fetchTrainerData() {
+      fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vSClTYNvQo15rYGb6Au-Uxk84CxTuJ1Q5sLEhXd2ReLm0JyUbhQhOMSi1-I50hf3Rs4TArW6gmgbqfa/pub?gid=0&single=true&output=csv")
+        .then(res => res.text())
+        .then(csv => {
+          const lines = csv.split("\n").slice(1);
+          trainerData = lines.map(row => {
+            const [name, booking, zip, city, availability, bio] = row.split(",");
+            return { name, booking, zip, city, availability, bio, field: city };
+          }).filter(t => t.name && t.zip && t.city);
+        })
+        .catch(err => {
+          console.error("Failed to fetch sheet:", err);
+        });
+    }
+
+    function searchByZip() {
+      const zip = document.getElementById("zipInput").value.trim();
+      const results = document.getElementById("results");
+      results.innerHTML = "";
+
+      const matched = trainerData.filter(t => t.zip === zip);
+      if (matched.length === 0) {
+        results.innerHTML = "<div class='not-found'>No available trainers found in that ZIP. Try another one.</div>";
+        return;
+      }
+
+      const fields = [...new Set(matched.map(t => t.field))];
+
+      fields.forEach(field => {
+        const fieldSection = document.createElement("div");
+        fieldSection.className = "field-section";
+        const title = document.createElement("h2");
+        title.textContent = "🏟 " + field;
+        fieldSection.appendChild(title);
+
+        matched.filter(t => t.field === field).forEach(trainer => {
+          const card = document.createElement("div");
+          card.className = "trainer-card";
+          card.innerHTML = `
+            <h3>${trainer.name}</h3>
+            <p><strong>City:</strong> ${trainer.city}</p>
+            <p><strong>Availability:</strong> ${trainer.availability}</p>
+            <p>${trainer.bio}</p>
+            <a href="${trainer.booking}" target="_blank">Book This Trainer</a>
+          `;
+          fieldSection.appendChild(card);
+        });
+
+        results.appendChild(fieldSection);
+      });
+    }
+
+    fetchTrainerData();
+  </script>
+</body>
+</html>
