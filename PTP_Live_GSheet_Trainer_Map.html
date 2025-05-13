@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PTP Trainer Matcher</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+    }
+    header {
+      background: #111;
+      color: white;
+      text-align: center;
+      padding: 30px 20px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
+    header p {
+      margin-top: 10px;
+      font-size: 1rem;
+      color: #ccc;
+    }
+    #controls {
+      text-align: center;
+      padding: 20px;
+      background: #fff;
+    }
+    #zipInput {
+      padding: 10px;
+      width: 220px;
+      font-size: 16px;
+    }
+    #searchButton {
+      padding: 10px 15px;
+      font-size: 16px;
+      margin-left: 8px;
+      cursor: pointer;
+      background-color: #FFD700;
+      border: none;
+      border-radius: 4px;
+    }
+    #map {
+      width: 100%;
+      height: 600px;
+    }
+    .info-content {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📍 Find the Best Trainer & Field Near You</h1>
+    <p>Instantly match with the closest college/pro trainer based on your zip code.</p>
+  </header>
+
+  <div id="controls">
+    <input type="text" id="zipInput" placeholder="Enter your ZIP code" />
+    <button id="searchButton" onclick="geocodeZip()">Find My Trainer</button>
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    let map, userLocation, trainerData = [];
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 40.0, lng: -75.3 },
+        zoom: 10
+      });
+      fetchTrainerData();
+    }
+
+    function fetchTrainerData() {
+      fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vSClTYNvQo15rYGb6Au-Uxk84CxTuJ1Q5sLEhXd2ReLm0JyUbhQhOMSi1-I50hf3Rs4TArW6gmgbqfa/pub?gid=1794622671&single=true&output=csv")
+        .then(res => res.text())
+        .then(csv => {
+          const lines = csv.split("\n").slice(1);
+          trainerData = lines.map(line => {
+            const [name, link, zip, city, specialty, availability] = line.split(",");
+            const lat = 40 + Math.random() * 0.2 - 0.1;
+            const lng = -75.3 + Math.random() * 0.2 - 0.1;
+            return { name, link, zip, city, specialty, availability, lat, lng };
+          });
+        });
+    }
+
+    function geocodeZip() {
+      const zip = document.getElementById("zipInput").value;
+      const geocoder = new google.maps.Geocoder();
+
+      geocoder.geocode({ address: zip }, (results, status) => {
+        if (status === "OK") {
+          userLocation = results[0].geometry.location;
+          map.setCenter(userLocation);
+          map.setZoom(12);
+          matchClosestTrainer(userLocation);
+        } else {
+          alert("Could not locate ZIP code.");
+        }
+      });
+    }
+
+    function matchClosestTrainer(origin) {
+      const service = new google.maps.DistanceMatrixService();
+      const destinations = trainerData.map(t => new google.maps.LatLng(t.lat, t.lng));
+
+      service.getDistanceMatrix({
+        origins: [origin],
+        destinations: destinations,
+        travelMode: 'DRIVING'
+      }, (response, status) => {
+        if (status !== 'OK') return;
+
+        const bestIndex = response.rows[0].elements
+          .map((el, i) => el.status === "OK" ? { duration: el.duration.value, index: i } : null)
+          .filter(Boolean)
+          .sort((a, b) => a.duration - b.duration)[0]?.index;
+
+        if (bestIndex !== undefined) {
+          const trainer = trainerData[bestIndex];
+          const marker = new google.maps.Marker({
+            position: { lat: trainer.lat, lng: trainer.lng },
+            map,
+            icon: "https://maps.google.com/mapfiles/ms/icons/orange-dot.png",
+            title: trainer.name
+          });
+
+          const infoWindow = new google.maps.InfoWindow({
+            content: `
+              <div class='info-content'>
+                <strong>🏟 Field:</strong> ${trainer.city}<br>
+                <strong>👤 Trainer:</strong> ${trainer.name}<br>
+                <strong>🎯 Specialty:</strong> ${trainer.specialty}<br>
+                <strong>📅 Availability:</strong> ${trainer.availability}<br>
+                <a href='${trainer.link}' target='_blank'>✅ Book This Trainer</a>
+              </div>
+            `
+          });
+          infoWindow.open(map, marker);
+          marker.addListener("click", () => infoWindow.open(map, marker));
+        }
+      });
+    }
+  </script>
+
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyASLf8mjb8iEbVo99DnaaPzXGlu5jhXrZE&libraries=places&callback=initMap">
+  </script>
+</body>
+</html>
