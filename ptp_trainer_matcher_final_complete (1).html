@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PTP Trainer Matcher</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: #111;
+      color: #fff;
+      text-align: center;
+    }
+    #map {
+      height: 75vh;
+      width: 100%;
+    }
+    .instructions {
+      background: #FFD700;
+      padding: 20px;
+      color: #111;
+    }
+    .search-box {
+      padding: 20px;
+    }
+    .search-box input,
+    .search-box button {
+      display: block;
+      margin: 10px auto;
+      padding: 12px;
+      width: 90%;
+      max-width: 400px;
+      font-size: 1rem;
+      border-radius: 10px;
+      border: none;
+    }
+    .search-box input {
+      border: 2px solid #FFD700;
+      background: #fff;
+      color: #111;
+    }
+    .search-box button {
+      background: #FFD700;
+      color: #111;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+  <script src="https://maps.googleapis.com/maps/api/js?key={ api_key }&callback=initMap" async defer></script>
+</head>
+<body>
+  <div class="instructions">
+    <h2>📍 Enter Your ZIP to Get Matched with a PTP Trainer</h2>
+  </div>
+  <div class="search-box">
+    <input type="text" id="zipInput" placeholder="Enter ZIP or use location..." />
+    <button onclick="useMyLocation()">📍 Use My Location</button>
+    <button onclick="matchTrainer()">Match Me</button>
+  </div>
+  <div id="map"></div>
+
+  <script>
+    const trainers = { trainers };
+    const fields = { fields };
+
+    function initMap() {
+      const map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 40.05, lng: -75.4 },
+        zoom: 10
+      });
+      fields.forEach(field => {
+        new google.maps.Marker({
+          position: { lat: field.lat, lng: field.lng },
+          map,
+          title: field.name,
+          icon: "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+        });
+      });
+    }
+
+    function useMyLocation() {
+      alert('Location matching coming soon...');
+    }
+
+    function matchTrainer() {
+      alert('Trainer matching coming soon...');
+    }
+  </script>
+
+<div id="overlay"></div>
+<div class="modal" id="matchModal">
+  <h3 id="trainerName"></h3>
+  <p><strong>Position:</strong> <span id="trainerPosition"></span></p>
+  <p><strong>Bio:</strong> <span id="trainerBio"></span></p>
+  <p><strong>Rating:</strong> <span id="trainerRating"></span> ⭐</p>
+  <p><strong>Review:</strong> “<span id="trainerReview"></span>”</p>
+  <p><strong>Trainer ZIP:</strong> <span id="trainerZIP"></span></p>
+  <p><strong>Suggested Field:</strong> <span id="trainerField"></span></p>
+  <p><strong>Field Address:</strong> <span id="fieldLocation"></span></p>
+  <p><strong>Estimated Drive Time:</strong> <span id="driveTime"></span></p>
+  <a id="directionsButton" target="_blank"><button>🧭 Get Directions</button></a>
+  <a id="bookButton" target="_blank"><button>📅 Book This Trainer</button></a>
+  <button onclick="rematchTrainer()">🔄 Show Another Trainer</button>
+  <button onclick="closeModal()">❌ Close</button>
+  <p class="urgency">⚠️ Limited availability near you</p>
+  <div id="saveForm" style="margin-top: 30px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 10px;">
+    <h4 style="margin-bottom: 5px;">💬 Need Help Booking?</h4>
+    <p style="margin-top: 0; font-size: 0.95rem;">Drop your phone number and we'll follow up with this trainer match via text:</p>
+    <iframe data-tally-src="https://tally.so/embed/woQDY1?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1" loading="lazy" width="100%" height="180" frameborder="0" marginheight="0" marginwidth="0" title="PTP Booking Help" style="border-radius: 8px;"></iframe>
+    <script>var d=document,w="https://tally.so/widgets/embed.js";if(!d.querySelector('script[src="'+w+'"]')){{var s=d.createElement("script");s.src=w;s.defer=true;d.body.appendChild(s);}}</script>
+  </div>
+</div>
+
+
+<script>
+let lastZipMatched = null;
+let lastTrainerMatched = null;
+
+function getDistance(zip1, zip2) {
+  return Math.abs(parseInt(zip1) - parseInt(zip2));
+}
+
+function getClosestTrainer(zip) {
+  return trainers.map(t => ({ ...t, dist: getDistance(zip, t.zip) })).sort((a, b) => a.dist - b.dist)[0];
+}
+
+function getClosestField(zip) {
+  return fields.map(f => ({ ...f, dist: getDistance(zip, f.zip) })).sort((a, b) => a.dist - b.dist)[0];
+}
+
+function matchTrainer(zipOverride = null) {
+  const zip = zipOverride || document.getElementById("zipInput").value.trim();
+  if (!zip || zip.length < 5) return;
+  const bestTrainer = getClosestTrainer(zip);
+  const bestField = getClosestField(bestTrainer.zip);
+
+  document.getElementById("trainerName").textContent = bestTrainer.name;
+  document.getElementById("trainerPosition").textContent = bestTrainer.position;
+  document.getElementById("trainerBio").textContent = bestTrainer.bio;
+  document.getElementById("trainerRating").textContent = bestTrainer.rating;
+  document.getElementById("trainerReview").textContent = bestTrainer.review;
+  document.getElementById("trainerZIP").textContent = bestTrainer.zip;
+  document.getElementById("trainerField").textContent = bestField.name + " (" + bestField.zip + ")";
+
+  const geocoder = new google.maps.Geocoder();
+  geocoder.geocode({ location: { lat: bestField.lat, lng: bestField.lng } }, (results, status) => {
+    if (status === 'OK' && results[0]) {
+      const address = results[0].formatted_address;
+      document.getElementById("fieldLocation").textContent = address;
+      document.getElementById("directionsButton").href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+      getDriveTime(address);
+    }
+  });
+
+  const utm = encodeURIComponent(zip);
+  lastZipMatched = zip;
+  lastTrainerMatched = bestTrainer.name;
+  document.getElementById("bookButton").href = bestTrainer.link + `?utm_source=trainer_match&utm_zip=${utm}`;
+
+  const modal = document.getElementById("matchModal");
+  modal.style.display = "block";
+  setTimeout(() => modal.classList.add("show"), 10);
+  document.getElementById("overlay").style.display = "block";
+}
+
+function rematchTrainer() {
+  if (!lastZipMatched) return;
+  const zip = lastZipMatched;
+  const options = trainers.filter(t => t.name !== lastTrainerMatched);
+  const bestTrainer = options.map(t => ({ ...t, dist: getDistance(zip, t.zip) })).sort((a, b) => a.dist - b.dist)[0];
+  const bestField = getClosestField(bestTrainer.zip);
+
+  document.getElementById("trainerName").textContent = bestTrainer.name;
+  document.getElementById("trainerPosition").textContent = bestTrainer.position;
+  document.getElementById("trainerBio").textContent = bestTrainer.bio;
+  document.getElementById("trainerRating").textContent = bestTrainer.rating;
+  document.getElementById("trainerReview").textContent = bestTrainer.review;
+  document.getElementById("trainerZIP").textContent = bestTrainer.zip;
+  document.getElementById("trainerField").textContent = bestField.name + " (" + bestField.zip + ")";
+
+  const geocoder = new google.maps.Geocoder();
+  geocoder.geocode({ location: { lat: bestField.lat, lng: bestField.lng } }, (results, status) => {
+    if (status === 'OK' && results[0]) {
+      const address = results[0].formatted_address;
+      document.getElementById("fieldLocation").textContent = address;
+      document.getElementById("directionsButton").href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+      getDriveTime(address);
+    }
+  });
+
+  document.getElementById("bookButton").href = bestTrainer.link + `?utm_source=trainer_match&utm_zip=${encodeURIComponent(zip)}`;
+  lastTrainerMatched = bestTrainer.name;
+}
+
+function getDriveTime(destination) {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+      const service = new google.maps.DistanceMatrixService();
+      service.getDistanceMatrix({
+        origins: [origin],
+        destinations: [destination],
+        travelMode: 'DRIVING'
+      }, (response, status) => {
+        if (status === 'OK') {
+          const result = response.rows[0].elements[0];
+          if (result.status === 'OK') {
+            document.getElementById('driveTime').textContent = result.duration.text;
+          }
+        }
+      });
+    });
+  }
+}
+
+function closeModal() {
+  document.getElementById("matchModal").classList.remove("show");
+  setTimeout(() => {
+    document.getElementById("matchModal").style.display = "none";
+    document.getElementById("overlay").style.display = "none";
+  }, 300);
+}
+
+function useMyLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(position => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyASLf8mjb8iEbVo99DnaaPzXGlu5jhXrZE`)
+        .then(response => response.json())
+        .then(data => {
+          const zip = data.results[0].address_components.find(comp => comp.types.includes("postal_code")).long_name;
+          document.getElementById("zipInput").value = zip;
+          matchTrainer(zip);
+        });
+    }, () => {
+      alert('Location access denied. Please enter ZIP manually.');
+    });
+  } else {
+    alert('Geolocation is not supported on this browser.');
+  }
+}
+</script>
+
+</body>
+</html>
